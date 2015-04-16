@@ -2,7 +2,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use error::HttpError;
+use error::Error;
 use self::Method::{Options, Get, Post, Put, Delete, Head, Trace, Connect, Patch,
                    Extension};
 
@@ -69,10 +69,10 @@ impl Method {
 }
 
 impl FromStr for Method {
-    type Err = HttpError;
-    fn from_str(s: &str) -> Result<Method, HttpError> {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Method, Error> {
         if s == "" {
-            Err(HttpError::HttpMethodError)
+            Err(Error::Method)
         } else {
             Ok(match s {
                 "OPTIONS" => Options,

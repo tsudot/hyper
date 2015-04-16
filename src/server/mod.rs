@@ -13,8 +13,7 @@ pub use self::response::Response;
 
 pub use net::{Fresh, Streaming};
 
-use HttpError::HttpIoError;
-use {HttpResult};
+use Error;
 use buffer::BufReader;
 use header::{Headers, Connection, Expect};
 use header::ConnectionOption::{Close, KeepAlive};
@@ -79,7 +78,7 @@ impl<'a, H: Handler + 'static> Server<'a, H, HttpListener> {
 
 impl<'a, H: Handler + 'static> Server<'a, H, HttpListener> {
     /// Binds to a socket, and starts handling connections using a task pool.
-    pub fn listen_threads<T: ToSocketAddrs>(self, addr: T, threads: usize) -> HttpResult<Listening> {
+    pub fn listen_threads<T: ToSocketAddrs>(self, addr: T, threads: usize) -> ::Result<Listening> {
         let listener = try!(match self.ssl {
             Some((cert, key)) => HttpListener::https(addr, cert, key),
             None => HttpListener::http(addr)
@@ -88,7 +87,7 @@ impl<'a, H: Handler + 'static> Server<'a, H, HttpListener> {
     }
 
     /// Binds to a socket and starts handling connections.
-    pub fn listen<T: ToSocketAddrs>(self, addr: T) -> HttpResult<Listening> {
+    pub fn listen<T: ToSocketAddrs>(self, addr: T) -> ::Result<Listening> {
         self.listen_threads(addr, num_cpus::get() * 5 / 4)
     }
 }
@@ -98,7 +97,7 @@ H: Handler + 'static,
 L: NetworkListener<Stream=S> + Send + 'static,
 S: NetworkStream + Clone + Send> Server<'a, H, L> {
     /// Creates a new server that will handle `HttpStream`s.
-    pub fn with_listener(self, mut listener: L, threads: usize) -> HttpResult<Listening> {
+    pub fn with_listener(self, mut listener: L, threads: usize) -> ::Result<Listening> {
         let socket = try!(listener.local_addr());
         let handler = self.handler;
 
@@ -136,11 +135,11 @@ where S: NetworkStream + Clone, H: Handler {
     while keep_alive {
         let req = match Request::new(&mut rdr, addr) {
             Ok(req) => req,
-            Err(HttpIoError(ref e)) if e.kind() == ErrorKind::ConnectionAborted => {
+            Err(Error::Io(ref e)) if e.kind() == ErrorKind::ConnectionAborted => {
                 trace!("tcp closed, cancelling keep-alive loop");
                 break;
             }
-            Err(HttpIoError(e)) => {
+            Err(Error::Io(e)) => {
                 debug!("ioerror in keepalive loop = {:?}", e);
                 break;
             }
@@ -203,7 +202,7 @@ impl Drop for Listening {
 
 impl Listening {
     /// Stop the server from listening to its socket address.
-    pub fn close(&mut self) -> HttpResult<()> {
+    pub fn close(&mut self) -> ::Result<()> {
         let _ = self._guard.take();
         debug!("closing server");
         //try!(self.acceptor.close());
